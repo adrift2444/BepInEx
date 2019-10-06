@@ -190,7 +190,7 @@ namespace BepInEx.Bootstrap
 				UnityEngine.Object.DontDestroyOnLoad(ManagerObject);
 
 				var pluginsToLoad = TypeLoader.FindPluginTypes(Paths.PluginPath, ToPluginInfo, HasBepinPlugins, "chainloader");
-				foreach (var keyValuePair in pluginsToLoad)
+				foreach (var keyValuePair in pluginsToLoad.Where(kv => kv.Value.Count != 0))
 					foreach (var pluginInfo in keyValuePair.Value)
 						pluginInfo.Location = keyValuePair.Key;
 				var pluginInfos = pluginsToLoad.SelectMany(p => p.Value).ToList();

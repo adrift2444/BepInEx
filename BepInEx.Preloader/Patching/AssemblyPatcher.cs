@@ -85,7 +85,7 @@ namespace BepInEx.Preloader.Patching
 
 			var patchers = TypeLoader.FindPluginTypes(directory, ToPatcherPlugin);
 
-			foreach (var keyValuePair in patchers)
+			foreach (var keyValuePair in patchers.Where(kv => kv.Value.Count != 0))
 			{
 				var assemblyPath = keyValuePair.Key;
 				var patcherCollection = keyValuePair.Value;
