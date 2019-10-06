@@ -136,7 +136,8 @@ namespace BepInEx.Bootstrap
 			}
 			catch (Exception e)
 			{
-				Logger.LogWarning($"Failed to load cache \"{cacheName}\"; skipping loading cache. Reason: {e.Message}.");
+				Logger.LogWarning($"Failed to load cache \"{cacheName}\"; skipping loading cache.");
+				Logger.LogDebug($"Failed to load cache \"{cacheName}\"; skipping loading cache. Reason: {e.Message}.");
 			}
 
 			return result;
@@ -168,7 +169,8 @@ namespace BepInEx.Bootstrap
 			}
 			catch (Exception e)
 			{
-				Logger.LogWarning($"Failed to save cache \"{cacheName}\"; skipping saving cache. Reason: {e.Message}.");
+				Logger.LogWarning($"Failed to save cache \"{cacheName}\"; skipping saving cache.");
+				Logger.LogDebug($"Failed to save cache \"{cacheName}\"; skipping saving cache. Reason: {e.Message}.");
 			}
 		}
 
