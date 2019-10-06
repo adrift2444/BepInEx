@@ -8,7 +8,8 @@ namespace BepInEx.Preloader.Patching
 	/// <summary>
 	///     A single assembly patcher.
 	/// </summary>
-	internal class PatcherPlugin : ICacheable
+	[Serializable]
+	internal class PatcherPlugin
 	{
 		/// <summary>
 		///     Target assemblies to patch.
@@ -34,15 +35,5 @@ namespace BepInEx.Preloader.Patching
 		///     Type name of the patcher.
 		/// </summary>
 		public string TypeName { get; set; } = string.Empty;
-
-		public void Save(BinaryWriter bw)
-		{
-			bw.Write(TypeName);
-		}
-
-		public void Load(BinaryReader br)
-		{
-			TypeName = br.ReadString();
-		}
 	}
 }

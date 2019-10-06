@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -11,28 +13,11 @@ using Mono.Cecil;
 namespace BepInEx.Bootstrap
 {
 	/// <summary>
-	/// A cacheable metadata item. Can be used with <see cref="TypeLoader.LoadAssemblyCache{T}"/> and <see cref="TypeLoader.SaveAssemblyCache{T}"/> to cache plugin metadata.
-	/// </summary>
-	public interface ICacheable
-	{
-		/// <summary>
-		/// Serialize the object into a binary format.
-		/// </summary>
-		/// <param name="bw"></param>
-		void Save(BinaryWriter bw);
-
-		/// <summary>
-		/// Loads the object from binary format.
-		/// </summary>
-		/// <param name="br"></param>
-		void Load(BinaryReader br);
-	}
-
-	/// <summary>
 	/// A cached assembly.
 	/// </summary>
 	/// <typeparam name="T"></typeparam>
-	public class CachedAssembly<T> where T : ICacheable
+	[Serializable]
+	public class CachedAssembly<T> where T : new()
 	{
 		/// <summary>
 		/// List of cached items inside the assembly.
@@ -63,9 +48,7 @@ namespace BepInEx.Bootstrap
 			{
 				var name = new AssemblyName(reference.FullName);
 
-				if (Utility.TryResolveDllAssembly(name, Paths.BepInExAssemblyDirectory, readerParameters, out var assembly) ||
-					Utility.TryResolveDllAssembly(name, Paths.PluginPath, readerParameters, out assembly) ||
-					Utility.TryResolveDllAssembly(name, Paths.ManagedPath, readerParameters, out assembly))
+				if (Utility.TryResolveDllAssembly(name, Paths.BepInExAssemblyDirectory, readerParameters, out var assembly) || Utility.TryResolveDllAssembly(name, Paths.PluginPath, readerParameters, out assembly) || Utility.TryResolveDllAssembly(name, Paths.ManagedPath, readerParameters, out assembly))
 					return assembly;
 
 				return AssemblyResolve?.Invoke(sender, reference);
@@ -83,7 +66,7 @@ namespace BepInEx.Bootstrap
 		/// <param name="assemblyFilter">A filter function to quickly determine if the assembly can be loaded.</param>
 		/// <param name="cacheName">The name of the cache to get cached types from.</param>
 		/// <returns>A list of all loadable type metadatas indexed by the full path to the assembly that contains the types.</returns>
-		public static Dictionary<string, List<T>> FindPluginTypes<T>(string directory, Func<TypeDefinition, T> typeSelector, Func<AssemblyDefinition, bool> assemblyFilter = null, string cacheName = null) where T : ICacheable, new()
+		public static Dictionary<string, List<T>> FindPluginTypes<T>(string directory, Func<TypeDefinition, T> typeSelector, Func<AssemblyDefinition, bool> assemblyFilter = null, string cacheName = null) where T : new()
 		{
 			var result = new Dictionary<string, List<T>>();
 			Dictionary<string, CachedAssembly<T>> cache = null;
@@ -140,9 +123,12 @@ namespace BepInEx.Bootstrap
 		/// <param name="cacheName">Name of the cache</param>
 		/// <typeparam name="T">Cacheable item</typeparam>
 		/// <returns>Cached type metadatas indexed by the path of the assembly that defines the type. If no cache is defined, return null.</returns>
-		public static Dictionary<string, CachedAssembly<T>> LoadAssemblyCache<T>(string cacheName) where T : ICacheable, new()
+		public static Dictionary<string, CachedAssembly<T>> LoadAssemblyCache<T>(string cacheName) where T : new()
 		{
 			if (!EnableAssemblyCache.Value)
+				return null;
+
+			if (!typeof(T).IsSerializable && !typeof(ISerializable).IsAssignableFrom(typeof(T)))
 				return null;
 
 			var result = new Dictionary<string, CachedAssembly<T>>();
@@ -151,28 +137,8 @@ namespace BepInEx.Bootstrap
 				string path = Path.Combine(Paths.CachePath, $"{cacheName}_typeloader.dat");
 				if (!File.Exists(path))
 					return null;
-
-				using (var br = new BinaryReader(File.OpenRead(path)))
-				{
-					int entriesCount = br.ReadInt32();
-
-					for (var i = 0; i < entriesCount; i++)
-					{
-						string entryIdentifier = br.ReadString();
-						long entryDate = br.ReadInt64();
-						int itemsCount = br.ReadInt32();
-						var items = new List<T>();
-
-						for (var j = 0; j < itemsCount; j++)
-						{
-							var entry = new T();
-							entry.Load(br);
-							items.Add(entry);
-						}
-
-						result[entryIdentifier] = new CachedAssembly<T> { Timestamp = entryDate, CacheItems = items };
-					}
-				}
+				using (var fs = File.OpenRead(path))
+					return (Dictionary<string, CachedAssembly<T>>)new BinaryFormatter().Deserialize(fs);
 			}
 			catch (Exception e)
 			{
@@ -188,9 +154,11 @@ namespace BepInEx.Bootstrap
 		/// <param name="cacheName">Name of the cache</param>
 		/// <param name="entries">List of plugin metadatas indexed by the path to the assembly that contains the types</param>
 		/// <typeparam name="T">Cacheable item</typeparam>
-		public static void SaveAssemblyCache<T>(string cacheName, Dictionary<string, List<T>> entries) where T : ICacheable
+		public static void SaveAssemblyCache<T>(string cacheName, Dictionary<string, List<T>> entries) where T : new()
 		{
 			if (!EnableAssemblyCache.Value)
+				return;
+			if (!typeof(T).IsSerializable && !typeof(ISerializable).IsAssignableFrom(typeof(T)))
 				return;
 
 			try
@@ -199,21 +167,10 @@ namespace BepInEx.Bootstrap
 					Directory.CreateDirectory(Paths.CachePath);
 
 				string path = Path.Combine(Paths.CachePath, $"{cacheName}_typeloader.dat");
+				var cachedEntries = entries.ToDictionary(kv => kv.Key, kv => new CachedAssembly<T> { CacheItems = kv.Value, Timestamp = File.GetLastWriteTimeUtc(kv.Key).Ticks });
 
-				using (var bw = new BinaryWriter(File.OpenWrite(path)))
-				{
-					bw.Write(entries.Count);
-
-					foreach (var kv in entries)
-					{
-						bw.Write(kv.Key);
-						bw.Write(File.GetLastWriteTimeUtc(kv.Key).Ticks);
-						bw.Write(kv.Value.Count);
-
-						foreach (var item in kv.Value)
-							item.Save(bw);
-					}
-				}
+				using (var fs = File.OpenWrite(path))
+					new BinaryFormatter().Serialize(fs, cachedEntries);
 			}
 			catch (Exception e)
 			{
@@ -257,10 +214,7 @@ namespace BepInEx.Bootstrap
 
 		#region Config
 
-		private static readonly ConfigEntry<bool> EnableAssemblyCache = ConfigFile.CoreConfig.AddSetting(
-			"Caching", "EnableAssemblyCache", 
-			true, 
-			"Enable/disable assembly metadata cache\nEnabling this will speed up discovery of plugins and patchers by caching the metadata of all types BepInEx discovers.");
+		private static readonly ConfigEntry<bool> EnableAssemblyCache = ConfigFile.CoreConfig.AddSetting("Caching", "EnableAssemblyCache", true, "Enable/disable assembly metadata cache\nEnabling this will speed up discovery of plugins and patchers by caching the metadata of all types BepInEx discovers.");
 
 		#endregion
 	}

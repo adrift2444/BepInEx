@@ -13,6 +13,7 @@ namespace BepInEx
 	/// This attribute denotes that a class is a plugin, and specifies the required metadata.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+	[Serializable]
 	public class BepInPlugin : Attribute
 	{
 		/// <summary>
@@ -65,7 +66,8 @@ namespace BepInEx
 	/// This attribute specifies any dependencies that this plugin has on other plugins.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-	public class BepInDependency : Attribute, ICacheable
+	[Serializable]
+	public class BepInDependency : Attribute
 	{
 		public enum DependencyFlags
 		{
@@ -131,27 +133,14 @@ namespace BepInEx
 				return new BepInDependency(dependencyGuid, (DependencyFlags)secondArg);
 			}).ToList();
 		}
-
-		void ICacheable.Save(BinaryWriter bw)
-		{
-			bw.Write(DependencyGUID);
-			bw.Write((int)Flags);
-			bw.Write(MinimumVersion.ToString());
-		}
-
-		void ICacheable.Load(BinaryReader br)
-		{
-			DependencyGUID = br.ReadString();
-			Flags = (DependencyFlags)br.ReadInt32();
-			MinimumVersion = new Version(br.ReadString());
-		}
 	}
 
 	/// <summary>
 	/// This attribute specifies other plugins that are incompatible with this plugin.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-	public class BepInIncompatibility : Attribute, ICacheable
+	[Serializable]
+	public class BepInIncompatibility : Attribute
 	{
 		/// <summary>
 		/// The GUID of the referenced plugin.
@@ -177,22 +166,13 @@ namespace BepInEx
 				return new BepInIncompatibility(dependencyGuid);
 			}).ToList();
 		}
-
-		void ICacheable.Save(BinaryWriter bw)
-		{
-			bw.Write(IncompatibilityGUID);
-		}
-
-		void ICacheable.Load(BinaryReader br)
-		{
-			IncompatibilityGUID = br.ReadString();
-		}
 	}
 
 	/// <summary>
 	/// This attribute specifies which processes this plugin should be run for. Not specifying this attribute will load the plugin under every process.
 	/// </summary>
 	[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+	[Serializable]
 	public class BepInProcess : Attribute
 	{
 		/// <summary>
