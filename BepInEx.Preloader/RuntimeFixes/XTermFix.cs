@@ -11,7 +11,7 @@ namespace BepInEx.Preloader.RuntimeFixes
 	{
 		public static void Apply()
 		{
-			if (!PlatformHelper.Is(Platform.Linux))
+			if (Utility.CurrentOs != Platform.Linux)
 				return;
 
 			if (AccessTools.Method("System.TermInfoReader:DetermineVersion") != null)

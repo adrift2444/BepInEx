@@ -2,8 +2,8 @@
 using System.IO;
 using System.Text;
 using BepInEx.Configuration;
-using BepInEx.Unix;
 using BepInEx.ConsoleUtil;
+using MonoMod.Utils;
 using UnityInjector.ConsoleUtil;
 
 namespace BepInEx
@@ -32,19 +32,12 @@ namespace BepInEx
 			Console.SetOut(StandardOutStream);
 			ConsoleActive = active;
 
-			switch (Environment.OSVersion.Platform)
+			switch (Utility.CurrentOs)
 			{
-				case PlatformID.MacOSX:
-				case PlatformID.Unix:
+				case Platform.MacOS:
+				case Platform.Linux:
 				{
 					ConsoleActive = true;
-					
-					var duplicateStream = UnixStreamHelper.CreateDuplicateStream(1);
-					
-					var writer = ConsoleWriter.CreateConsoleStreamWriter(duplicateStream, Console.Out.Encoding, true);
-					
-					StandardOutStream = writer;
-					Console.SetOut(StandardOutStream);
 					break;
 				}
 			}
@@ -56,9 +49,9 @@ namespace BepInEx
 			if (ConsoleActive)
 				return;
 			
-			switch (Environment.OSVersion.Platform)
+			switch (Utility.CurrentOs)
 			{
-				case PlatformID.Win32NT:
+				case Platform.Windows:
 				{
 					ConsoleWindow.Attach();
 					break;
@@ -78,9 +71,9 @@ namespace BepInEx
 			if (!ConsoleActive)
 				return;
 
-			switch (Environment.OSVersion.Platform)
+			switch (Utility.CurrentOs)
 			{
-				case PlatformID.Win32NT:
+				case Platform.Windows:
 				{
 					ConsoleWindow.Detach();
 					break;
@@ -105,17 +98,17 @@ namespace BepInEx
 			if (!ConsoleActive)
 				throw new InvalidOperationException("Console is not currently active");
 
-			switch (Environment.OSVersion.Platform)
+			switch (Utility.CurrentOs)
 			{
-				case PlatformID.Win32NT:
+				case Platform.Windows:
 				{
 					ConsoleEncoding.ConsoleCodePage = encodingCodePage;
 					Console.OutputEncoding = Encoding.GetEncoding((int)encodingCodePage);
 					break;
 				}
 
-				case PlatformID.MacOSX:
-				case PlatformID.Unix:
+				case Platform.MacOS:
+				case Platform.Linux:
 				{
 					break;
 				}
@@ -124,9 +117,9 @@ namespace BepInEx
 
 		public static void SetConsoleTitle(string title)
 		{
-			switch (Environment.OSVersion.Platform)
+			switch (Utility.CurrentOs)
 			{
-				case PlatformID.Win32NT:
+				case Platform.Windows:
 				{
 					if (!ConsoleActive)
 						return;
@@ -139,9 +132,9 @@ namespace BepInEx
 
 		public static void SetConsoleColor(ConsoleColor color)
 		{
-			switch (Environment.OSVersion.Platform)
+			switch (Utility.CurrentOs)
 			{
-				case PlatformID.Win32NT:
+				case Platform.Windows:
 				{
 					if (!ConsoleActive)
 						return;
@@ -156,17 +149,17 @@ namespace BepInEx
 
 		internal static void SetConsoleStreams()
 		{
-			switch (Environment.OSVersion.Platform)
+			switch (Utility.CurrentOs)
 			{
-				case PlatformID.Win32NT:
+				case Platform.Windows:
 				{
 					Console.SetOut(ConsoleStream);
 					Console.SetError(ConsoleStream);
 					break;
 				}
 
-				case PlatformID.MacOSX:
-				case PlatformID.Unix:
+				case Platform.MacOS:
+				case Platform.Linux:
 				{
 					// We do not have external consoles on Unix platforms.
 					// Set the console output to standard output
